@@ -14,14 +14,25 @@ enum Color {
 type NodeId = usize;
 type Graph = Vec<Vec<NodeId>>;
 
+const graph : bool = false;
+const answer : bool = true;
+
 unsafe fn run() {
     let stdin = io::stdin();
     let mut ilines = stdin.lock().lines();
     let nProblems = ilines.next().unwrap().unwrap().parse::<NodeId>().unwrap();
-    println!("Number of problems {}",nProblems);
+    if answer {
+        println!("Number of problems {}",nProblems);
+    }
     for problem in 0..nProblems {
         let nconn = ilines.next().unwrap().unwrap().parse::<usize>().unwrap();
-        println!("Problem {}\nnumber of connections {}",problem, nconn);
+        if answer {
+            println!("Problem {}\nnumber of connections {}",problem, nconn);
+        }
+        if graph {
+            //println!("digraph problem{} {{",problem);
+            println!("digraph {{");
+        }
         let mut flat_graph : Vec<NodeId> = Vec::with_capacity(nconn * 2);
         for id in ilines.next().unwrap().unwrap().trim().split(" ") {
             flat_graph.push(id.parse().unwrap());
@@ -38,7 +49,9 @@ unsafe fn run() {
         for i in 0..nconn {
             let from = *(id_map.get(&flat_graph[ 2*i + 0 ]).unwrap());
             let to   = *(id_map.get(&flat_graph[ 2*i + 1 ]).unwrap());
-            //println!("{}->{}",from,to);
+            if graph {
+                println!("g{}n{} -> g{}n{};",problem,from,problem,to);
+            }
             fast_graph[from].push(to);
         }
         let nnodes = sorted.len();
@@ -57,17 +70,17 @@ unsafe fn run() {
                     nprocessed+=1;
                     *ptr.offset(node as isize) = Color::Grey;
                     while stack.len()>0 {
-                        
                         let node = stack.pop().unwrap();
                         //colors[node] = Color::Black;
                         *ptr.offset(node as isize) = Color::Black;
-                        
                         for neighbor in &fast_graph[node] {
                             let neighbor = *neighbor;
                             inDegrees[neighbor]+=1;
                             if inDegrees[neighbor] > 1 {
                                 stack.clear();//to break parent loop
-                                println!("Not a tree! Failed at node {}", neighbor);
+                                if answer {
+                                    println!("Not a tree! Failed at node {}", neighbor);
+                                }
                                 isTree = false;
                                 break
                             }
@@ -90,39 +103,63 @@ unsafe fn run() {
                 }
             }
         }
+        let mut root = 0;
         let mut roots = 0;
-        for d in &inDegrees {
+        for (i, d) in (&inDegrees).iter().enumerate() {
             if *d == 0 {
+                root = i;
                 roots+=1;
-            }
-        }
-        if roots != 1 {
-            println!("Not a tree! Wrong number of roots! ({})", roots);
-            isTree = false;
-        }
-        /*
-        for color in colors {
-            match color {
-                Color::White => {
-                    println!("Not a tree, there are unprocessed nodes.");
+                if roots > 1 {
+                    if answer {
+                        println!("Not a tree! Wrong number of roots! ({})", roots);
+                    }
                     isTree = false;
                     break;
                 }
-                Color::Grey => {
-                    println!("Not a tree, there are unprocessed nodes.");
-                    isTree = false;
-                    break;
-                }
-                _ => {
-                    //pass
-                }
             }
         }
-         */
         if nprocessed != nnodes {
-            println!("Not a tree, there are unprocessed nodes.");
-        } else if isTree {
-            println!("Is a tree!");
+            isTree = false;
+            if answer {
+                println!("Not a tree, there are unprocessed nodes.");
+            }
+        }
+        if isTree {
+            let mut stack : Vec<NodeId> = Vec::new();
+            let mut colors : Vec<Color> = iter::repeat(Color::White).take(nnodes).collect();
+            stack.push(root);
+            colors[root] = Color::Grey;
+            while stack.len() > 0 {
+                let node = stack.pop().unwrap();
+                for neighbor in &fast_graph[node] {
+                    match colors[*neighbor] {
+                        Color::White => {
+                            stack.push(*neighbor);
+                            colors[*neighbor] = Color::Grey;
+                        }
+                        _ => {/*ignore*/}
+                    }
+                }
+                colors[node] = Color::Black;
+            }
+            match colors.iter().position(|x| match *x {
+                Color::White => true,
+                _ => false,
+            }) {
+                Some(x) => {
+                    isTree = false;
+                    println!("Not a tree! Walk from root {} failed to reach {}!",root,x);
+                }
+                None => {}
+            }
+        }
+        if isTree {
+            if answer {
+                println!("Is a tree!");
+            }
+        }
+        if graph {
+            println!("}}\n");
         }
     }
 }
